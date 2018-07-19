@@ -1,5 +1,7 @@
 builds:
   - binary: snappy
+    env:
+      - CGO_ENABLED=0
     goos:
       - darwin
       - linux
@@ -9,3 +11,8 @@ builds:
 
 archive:
   format: binary
+
+release:
+  github:
+    owner: threecommaio
+    name: snappy
