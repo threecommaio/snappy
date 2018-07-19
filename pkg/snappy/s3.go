@@ -41,19 +41,27 @@ type AWSConfig struct {
 	Throttle int
 }
 
-func NewS3(config *AWSConfig) *S3 {
+func NewS3(config *AWSConfig) (*S3, error) {
 	cfg, err := external.LoadDefaultAWSConfig()
 	if err != nil {
 		panic("unable to load SDK config, " + err.Error())
 	}
 	cfg.Region = config.Region
 
+	svc := s3.New(cfg)
+
+	req := svc.HeadBucketRequest(&s3.HeadBucketInput{Bucket: &config.Bucket})
+	_, err = req.Send()
+	if err != nil {
+		return nil, errors.Errorf("bucket [%s] not found or you do not have sufficient permissions", config.Bucket)
+	}
+
 	return &S3{
 		bucket:   config.Bucket,
 		throttle: config.Throttle,
-		svc:      s3.New(cfg),
+		svc:      svc,
 		uploader: s3manager.NewUploader(cfg),
-	}
+	}, nil
 }
 
 func (s *S3) UploadFile(filename string, key string) error {

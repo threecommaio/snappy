@@ -9,10 +9,13 @@ import (
 
 // Backup a nodes snapshot to S3
 func Backup(config *AWSConfig, snapshotID string) {
-	s3 := NewS3(config)
+	s3, err := NewS3(config)
+	if err != nil {
+		log.Fatal(err)
+	}
 	cassandra := NewCassandra()
 
-	_, err := cassandra.CreateSnapshot(snapshotID)
+	_, err = cassandra.CreateSnapshot(snapshotID)
 	if err != nil {
 		log.Println("snapshot already exists, going to continue upload anyway")
 	}
@@ -22,7 +25,9 @@ func Backup(config *AWSConfig, snapshotID string) {
 	files := cassandra.GetSnapshotFiles(snapshotID)
 	for path, key := range files {
 		log.Println("Uploading file:", key)
-		s3.UploadFile(path, key)
+		if err := s3.UploadFile(path, key); err != nil {
+			log.Fatal(err)
+		}
 
 		fi, e := os.Stat(path)
 		if e != nil {
