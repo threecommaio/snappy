@@ -2,7 +2,6 @@ package snappy
 
 import (
 	"io"
-	"log"
 	"math"
 	"os"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/s3manager"
 	"github.com/aybabtme/iocontrol"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -44,15 +44,15 @@ type AWSConfig struct {
 func NewS3(config *AWSConfig) (*S3, error) {
 	cfg, err := external.LoadDefaultAWSConfig()
 	if err != nil {
-		panic("unable to load SDK config, " + err.Error())
+		log.Fatalln("unable to load SDK config,", err.Error())
 	}
 	cfg.Region = config.Region
 
 	svc := s3.New(cfg)
-
 	req := svc.HeadBucketRequest(&s3.HeadBucketInput{Bucket: &config.Bucket})
 	_, err = req.Send()
 	if err != nil {
+		log.Info(err)
 		return nil, errors.Errorf("bucket [%s] not found or you do not have sufficient permissions", config.Bucket)
 	}
 
@@ -89,6 +89,7 @@ func (s *S3) UploadFile(filename string, key string) error {
 	}
 
 	// upload file
+	log.Debugf("uploading file [%s] -> [%s]", filename, key)
 	_, err = s.uploader.Upload(params, func(u *s3manager.Uploader) {
 		u.MaxUploadParts = 10000       // set to maximum allowed by s3
 		u.PartSize = 128 * 1024 * 1024 // 128MB

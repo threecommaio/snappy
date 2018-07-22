@@ -1,18 +1,16 @@
 package snappy
 
 import (
-	"log"
 	"os"
 
 	"github.com/cheggaaa/pb"
 	humanize "github.com/dustin/go-humanize"
+	log "github.com/sirupsen/logrus"
 )
 
 // Backup a nodes snapshot to S3
 func Backup(config *AWSConfig, snapshotID string) {
-	var (
-		totalSize int64
-	)
+	var totalSize int64
 
 	s3, err := NewS3(config)
 	if err != nil {
@@ -22,7 +20,7 @@ func Backup(config *AWSConfig, snapshotID string) {
 
 	_, err = cassandra.CreateSnapshot(snapshotID)
 	if err != nil {
-		log.Println("snapshot already exists, going to continue upload anyway")
+		log.Warn("snapshot already exists, going to continue upload anyway")
 	}
 
 	files := cassandra.GetSnapshotFiles(snapshotID)
@@ -35,8 +33,9 @@ func Backup(config *AWSConfig, snapshotID string) {
 		totalSize += fi.Size()
 	}
 
-	bar := pb.New64(totalSize).Start()
+	bar := pb.New64(totalSize)
 	bar.SetUnits(pb.U_BYTES)
+	bar.Start()
 	bar.ShowSpeed = true
 
 	for path, key := range files {
@@ -50,5 +49,5 @@ func Backup(config *AWSConfig, snapshotID string) {
 		bar.Add64(fi.Size())
 	}
 	bar.Finish()
-	log.Println("Uploaded a total size of:", humanize.Bytes(uint64(totalSize)))
+	log.Infoln("uploaded a total size of:", humanize.Bytes(uint64(totalSize)))
 }

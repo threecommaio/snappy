@@ -7,8 +7,10 @@ import (
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/threecommaio/snappy/pkg/snappy"
 )
 
 var cfgFile string
@@ -29,6 +31,7 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.PersistentFlags().Bool("debug", false, "enable debug logging")
 	cobra.OnInitialize(initConfig)
 }
 
@@ -55,5 +58,15 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
+
+	debug, _ := rootCmd.Flags().GetBool("debug")
+
+	log.SetFormatter(snappy.UTCFormatter{&log.TextFormatter{FullTimestamp: true}})
+
+	if debug {
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.SetLevel(log.InfoLevel)
 	}
 }

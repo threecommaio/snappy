@@ -3,7 +3,6 @@ package snappy
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 var searchPaths = []string{
@@ -37,7 +37,7 @@ func find(filename string) string {
 			return pathFilename
 		}
 	}
-	log.Fatal(filename, "was not found")
+	log.Fatalln(filename, "not found")
 	return ""
 }
 
@@ -68,13 +68,14 @@ func (c *Cassandra) CreateSnapshotID() string {
 // CreateSnapshot creates a snapshot by ID
 func (c *Cassandra) CreateSnapshot(id string) (bool, error) {
 	nodeTool := nodeTool()
-	log.Printf("creating a snapshot using id [%s]\n", id)
+	log.Infof("creating a snapshot using id [%s]\n", id)
 	cmd := exec.Command(nodeTool, "snapshot", "-t", id)
 
 	if err := cmd.Start(); err != nil {
 		return false, err
 	}
 
+	log.Debug("waiting for nodetool to complete")
 	if err := cmd.Wait(); err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
@@ -110,6 +111,9 @@ func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
 	)
 	dataDirs := c.GetDataDirectories()
 	node := c.GetListenAddress()
+
+	log.Debugln("fetched dataDirs", dataDirs)
+	log.Debugln("fetched node ip address", node)
 
 	for _, dataDir := range dataDirs {
 		files, err := ioutil.ReadDir(dataDir)
@@ -159,6 +163,6 @@ func (c *Cassandra) GetListenAddress() string {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("could not find a listen_address in cassandra.yaml, falling back to using %s\n", localIP)
+	log.Warnf("could not find a listen_address in cassandra.yaml, falling back to using %s\n", localIP)
 	return localIP
 }
