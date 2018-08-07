@@ -6,9 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
+	pipes "github.com/ebuchman/go-shell-pipes"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -27,7 +29,8 @@ var searchPaths = []string{
 }
 
 type Cassandra struct {
-	config map[string]interface{}
+	config   map[string]interface{}
+	filename string
 }
 
 func find(filename string) string {
@@ -49,7 +52,11 @@ func NewCassandra() *Cassandra {
 		log.Fatal(err)
 	}
 
-	return &Cassandra{config: config}
+	return &Cassandra{config: config, filename: configFilename}
+}
+
+func (c *Cassandra) GetConfigFilename() string {
+	return c.filename
 }
 
 func nodeTool() string {
@@ -165,4 +172,19 @@ func (c *Cassandra) GetListenAddress() string {
 	}
 	log.Warnf("could not find a listen_address in cassandra.yaml, falling back to using %s\n", localIP)
 	return localIP
+}
+
+// GetTokenRange finds the range of tokens for an ip address in cluster
+func (c *Cassandra) GetTokenRange(ip string) ([]string, error) {
+	nodeTool := nodeTool()
+	tokens := []string{nodeTool, "ring", "|", "grep", ip, "|", "awk", "{print $NF \",\"}", "|", "xargs"}
+	ranges, err := pipes.RunStrings(tokens...)
+	if err != nil {
+		return nil, err
+	}
+	ranges = strings.TrimSpace(ranges)
+	ranges = strings.Replace(ranges, " ", "", -1)
+	ranges = strings.Replace(ranges, "\u0000", "", -1)
+	ranges = strings.TrimSuffix(ranges, ",")
+	return strings.Split(ranges, ","), nil
 }
