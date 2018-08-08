@@ -143,8 +143,10 @@ func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
 			for _, table := range tables {
 				files, _ := filepath.Glob(fmt.Sprintf(filepath.Join(dataDir, keyspace, table, "snapshots", id, "*")))
 				for _, file := range files {
-					baseFile := filepath.Base(file)
-					s3Files[file] = fmt.Sprintf("backups/%s/%s/%s/%s/%s", id, node, keyspace, table, baseFile)
+					if f, _ := os.Stat(file); !f.IsDir() {
+						baseFile := filepath.Base(file)
+						s3Files[file] = fmt.Sprintf("backups/%s/%s/%s/%s/%s", id, node, keyspace, table, baseFile)
+					}
 				}
 			}
 		}
