@@ -154,8 +154,8 @@ func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
 						log.Fatal(err)
 					}
 					if !info.IsDir() {
-						remotePath := strings.TrimLeft(path, tableDir)
-						s3Files[path] = fmt.Sprintf("backups/%s/%s/%s/%s/%s", id, node, keyspace, table, remotePath)
+						remotePath := strings.TrimPrefix(path, tableDir)
+						s3Files[path] = filepath.Join("backups", id, node, keyspace, table, remotePath)
 					}
 					return nil
 				})
