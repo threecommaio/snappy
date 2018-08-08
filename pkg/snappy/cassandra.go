@@ -107,7 +107,6 @@ func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
 
 	var (
 		keyspaces []string
-		tables    []string
 		s3Files   = make(map[string]string)
 	)
 	dataDirs := c.GetDataDirectories()
@@ -134,6 +133,8 @@ func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
 			if err != nil {
 				log.Fatal(err)
 			}
+
+			var tables []string
 
 			for _, file := range files {
 				if file.IsDir() {
