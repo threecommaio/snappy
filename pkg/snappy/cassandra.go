@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -141,13 +142,22 @@ func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
 			}
 
 			for _, table := range tables {
-				files, _ := filepath.Glob(fmt.Sprintf(filepath.Join(dataDir, keyspace, table, "snapshots", id, "*")))
-				for _, file := range files {
-					if f, _ := os.Stat(file); !f.IsDir() {
-						baseFile := filepath.Base(file)
-						s3Files[file] = fmt.Sprintf("backups/%s/%s/%s/%s/%s", id, node, keyspace, table, baseFile)
-					}
+				// check if keyspace, table, snapshot exist
+				tableDir := fmt.Sprintf(filepath.Join(dataDir, keyspace, table, "snapshots", id))
+				if _, err := os.Stat(tableDir); os.IsNotExist(err) {
+					continue
 				}
+
+				filepath.Walk(tableDir, func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						log.Fatal(err)
+					}
+					if !info.IsDir() {
+						remotePath := strings.TrimLeft(path, tableDir)
+						s3Files[path] = fmt.Sprintf("backups/%s/%s/%s/%s/%s", id, node, keyspace, table, remotePath)
+					}
+					return nil
+				})
 			}
 		}
 	}
