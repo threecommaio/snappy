@@ -1,7 +1,6 @@
 package snappy
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -144,7 +143,7 @@ func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
 
 			for _, table := range tables {
 				// check if keyspace, table, snapshot exist
-				tableDir := fmt.Sprintf(filepath.Join(dataDir, keyspace, table, "snapshots", id))
+				tableDir := filepath.Join(dataDir, keyspace, table, "snapshots", id, "/")
 				if _, err := os.Stat(tableDir); os.IsNotExist(err) {
 					continue
 				}
@@ -154,7 +153,7 @@ func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
 						log.Fatal(err)
 					}
 					if !info.IsDir() {
-						remotePath := strings.TrimPrefix(path, tableDir+"/")
+						remotePath := strings.TrimPrefix(path, tableDir)
 						s3Files[path] = filepath.Join("backups", id, node, keyspace, table, remotePath)
 					}
 					return nil
