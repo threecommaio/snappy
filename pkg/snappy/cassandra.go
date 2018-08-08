@@ -24,6 +24,10 @@ var searchPaths = []string{
 	"/opt/cassandra/conf",
 	"/usr/bin",
 	"/usr/sbin",
+	"/usr/local/etc/cassandra",
+	"/usr/local/etc/cassandra/conf",
+	"/usr/local/bin",
+	"/usr/local/sbin",
 }
 
 type Cassandra struct {
