@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	pipes "github.com/ebuchman/go-shell-pipes"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -191,15 +190,70 @@ func (c *Cassandra) GetListenAddress() string {
 
 // GetTokenRange finds the range of tokens for an ip address in cluster
 func (c *Cassandra) GetTokenRange(ip string) ([]string, error) {
-	nodeTool := nodeTool()
-	tokens := []string{nodeTool, "ring", "|", "grep", ip, "|", "awk", "{print $NF \",\"}", "|", "xargs"}
-	ranges, err := pipes.RunStrings(tokens...)
+	nodeTool := exec.Command(nodeTool(), "ring")
+	grep := exec.Command("grep", "-w", ip)
+	awk := exec.Command("awk", "{print $NF \",\"}")
+	xargs := exec.Command("xargs")
+
+	output, _, err := Pipeline(nodeTool, grep, awk, xargs)
 	if err != nil {
 		return nil, err
 	}
+	ranges := string(output)
+
 	ranges = strings.TrimSpace(ranges)
 	ranges = strings.Replace(ranges, " ", "", -1)
 	ranges = strings.Replace(ranges, "\u0000", "", -1)
 	ranges = strings.TrimSuffix(ranges, ",")
 	return strings.Split(ranges, ","), nil
+}
+
+func (c *Cassandra) FindTablePath(keyspace string, table string) (string, error) {
+	dataDirs := c.GetDataDirectories()
+	for _, dataDir := range dataDirs {
+		keyspaceDir := filepath.Join(dataDir, keyspace)
+		if _, err := os.Stat(keyspaceDir); os.IsNotExist(err) {
+			continue
+		}
+
+		files, err := ioutil.ReadDir(keyspaceDir)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, file := range files {
+			if file.IsDir() {
+				tableName, _ := Split(file.Name(), "-")
+				if tableName == table {
+					return filepath.Join(keyspaceDir, file.Name()), nil
+				}
+			}
+		}
+	}
+	return "", errors.New("could not find table")
+}
+
+func (c *Cassandra) FindTableUUID(keyspace string, table string) (string, error) {
+	dataDirs := c.GetDataDirectories()
+	for _, dataDir := range dataDirs {
+		keyspaceDir := filepath.Join(dataDir, keyspace)
+		if _, err := os.Stat(keyspaceDir); os.IsNotExist(err) {
+			continue
+		}
+
+		files, err := ioutil.ReadDir(keyspaceDir)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, file := range files {
+			if file.IsDir() {
+				tableName, uuid := Split(file.Name(), "-")
+				if tableName == table {
+					return uuid, nil
+				}
+			}
+		}
+	}
+	return "", errors.New("could not find table uuid")
 }
