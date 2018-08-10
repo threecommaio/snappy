@@ -8,7 +8,6 @@ require (
 	github.com/cheggaaa/pb v1.0.25
 	github.com/davecgh/go-spew v1.1.0 // indirect
 	github.com/dustin/go-humanize v0.0.0-20180713052910-9f541cc9db5d
-	github.com/ebuchman/go-shell-pipes v0.0.0-20150412091402-83e132480862
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/go-ini/ini v1.38.1 // indirect
