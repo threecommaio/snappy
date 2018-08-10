@@ -91,7 +91,7 @@ func (c *Cassandra) CreateSnapshot(id string) (bool, error) {
 				if status.ExitStatus() == 2 {
 					return false, errors.Errorf("snapshot already exists for [%s]", id)
 				}
-				return false, errors.Errorf("Exit Status: %d", status.ExitStatus())
+				log.Fatal("exit status 1 - nodetool connection error (is cassandra running?)\n", id)
 			}
 		} else {
 			return false, errors.Errorf("cmd.Wait: %v", err)
