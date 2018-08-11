@@ -32,6 +32,7 @@ var searchPaths = []string{
 
 var errSnapshotExists = errors.New("snapshot already exists")
 var errNodetoolError = errors.New("exit status 1 - nodetool connection error (is cassandra running?)")
+var errFileNotFound = errors.New("file not found")
 
 type Cassandra struct {
 	config   map[string]interface{}
@@ -39,37 +40,37 @@ type Cassandra struct {
 	fs       afero.Fs
 }
 
-func find(fs afero.Fs, filename string) string {
+func find(fs afero.Fs, filename string) (string, error) {
 	for _, p := range searchPaths {
 		var pathFilename = filepath.Join(p, filename)
 		if _, err := fs.Stat(pathFilename); err == nil {
-			return pathFilename
+			return pathFilename, nil
 		}
 	}
-	log.Fatalln(filename, "not found")
-	return ""
+	return "", errors.Wrap(errFileNotFound, filename)
 }
 
-func NewCassandra(fs afero.Fs) *Cassandra {
-	configFilename := cassandraYaml(fs)
-
+func NewCassandra(fs afero.Fs) (*Cassandra, error) {
+	configFilename, err := cassandraYaml(fs)
+	if err != nil {
+		return nil, err
+	}
 	config, err := parseYamlFile(configFilename)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-
-	return &Cassandra{config: config, filename: configFilename, fs: fs}
+	return &Cassandra{config: config, filename: configFilename, fs: fs}, nil
 }
 
 func (c *Cassandra) GetConfigFilename() string {
 	return c.filename
 }
 
-func nodeTool(fs afero.Fs) string {
+func nodeTool(fs afero.Fs) (string, error) {
 	return find(fs, "nodetool")
 }
 
-func cassandraYaml(fs afero.Fs) string {
+func cassandraYaml(fs afero.Fs) (string, error) {
 	return find(fs, "cassandra.yaml")
 }
 
@@ -80,9 +81,13 @@ func (c *Cassandra) CreateSnapshotID() string {
 
 // CreateSnapshot creates a snapshot by ID
 func (c *Cassandra) CreateSnapshot(id string) (bool, error) {
-	nodeTool := nodeTool(c.fs)
+	nodeToolCmd, err := nodeTool(c.fs)
+	if err != nil {
+		return false, err
+	}
+
 	log.Infof("creating a snapshot using id [%s]\n", id)
-	cmd := exec.Command(nodeTool, "snapshot", "-t", id)
+	cmd := exec.Command(nodeToolCmd, "snapshot", "-t", id)
 
 	if err := cmd.Start(); err != nil {
 		return false, err
@@ -194,7 +199,11 @@ func (c *Cassandra) GetListenAddress() string {
 
 // GetTokenRange finds the range of tokens for an ip address in cluster
 func (c *Cassandra) GetTokenRange(ip string) ([]string, error) {
-	nodeTool := exec.Command(nodeTool(c.fs), "ring")
+	nodeToolCmd, err := nodeTool(c.fs)
+	if err != nil {
+		return nil, err
+	}
+	nodeTool := exec.Command(nodeToolCmd, "ring")
 	grep := exec.Command("grep", "-w", ip)
 	awk := exec.Command("awk", "{print $NF \",\"}")
 	xargs := exec.Command("xargs")

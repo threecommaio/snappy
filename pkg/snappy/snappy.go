@@ -18,15 +18,17 @@ const (
 )
 
 // Backup a nodes snapshot to S3
-func Backup(fs afero.Fs, config *AWSConfig, snapshotID string) {
+func Backup(fs afero.Fs, config *AWSConfig, snapshotID string) error {
 	var totalSize int64
 
 	s3, err := NewS3(fs, config)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	cassandra := NewCassandra(fs)
-
+	cassandra, err := NewCassandra(fs)
+	if err != nil {
+		return err
+	}
 	_, err = cassandra.CreateSnapshot(snapshotID)
 	if err != nil {
 		switch err {
@@ -66,11 +68,15 @@ func Backup(fs afero.Fs, config *AWSConfig, snapshotID string) {
 	}
 	bar.Finish()
 	log.Infoln("uploaded a total size of:", humanize.Bytes(uint64(totalSize)))
+	return nil
 }
 
 // Prepare a mapping file to be written
-func RestorePrepare(fs afero.Fs, config *PrepareConfig) []byte {
-	cassandra := NewCassandra(fs)
+func RestorePrepare(fs afero.Fs, config *PrepareConfig) ([]byte, error) {
+	cassandra, err := NewCassandra(fs)
+	if err != nil {
+		return nil, err
+	}
 	mappingConfig := &PrepareMapping{
 		ClusterName: config.ClusterName,
 	}
@@ -91,17 +97,20 @@ func RestorePrepare(fs afero.Fs, config *PrepareConfig) []byte {
 
 	b, err := json.MarshalIndent(mappingConfig, "", "\t")
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return b
+	return b, nil
 }
 
 // RestoreApply handles the configuration of cassandra.yaml to make the destination node match the old source node
-func RestoreApply(fs afero.Fs, dstNode string, mapping *PrepareMapping) {
+func RestoreApply(fs afero.Fs, dstNode string, mapping *PrepareMapping) error {
 	var tokenRange []string
 	var initalToken string
 
-	cassandra := NewCassandra(fs)
+	cassandra, err := NewCassandra(fs)
+	if err != nil {
+		return err
+	}
 
 	if _, ok := cassandra.config["initial_token"]; ok {
 		log.Fatal("initial_token has already been set.. aborting")
@@ -132,17 +141,21 @@ func RestoreApply(fs afero.Fs, dstNode string, mapping *PrepareMapping) {
 	} else {
 		log.Fatalf("could not find node: %s in mapping file", dstNode)
 	}
+	return nil
 }
 
 // DownloadSnapshot handles copying data from a snapshot on S3 to the local node
-func DownloadSnapshot(fs afero.Fs, dstNode string, snapshotID string, config *AWSConfig, mapping *PrepareMapping, skipTables bool) {
+func DownloadSnapshot(fs afero.Fs, dstNode string, snapshotID string, config *AWSConfig, mapping *PrepareMapping, skipTables bool) error {
 	var (
 		srcNode       string
 		snapshotIndex []Snapshot
 		nodeFound     = false
-		cassandra     = NewCassandra(fs)
 	)
 
+	cassandra, err := NewCassandra(fs)
+	if err != nil {
+		return err
+	}
 	for _, node := range mapping.Nodes {
 		if dstNode == node.Destination {
 			srcNode = node.Source
@@ -202,5 +215,5 @@ func DownloadSnapshot(fs afero.Fs, dstNode string, snapshotID string, config *AW
 			s3.DownloadFiles(snapshotFolder, remoteFiles, downloadFolder)
 		}
 	}
-
+	return nil
 }

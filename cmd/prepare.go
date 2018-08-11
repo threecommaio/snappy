@@ -40,9 +40,12 @@ var prepareCmd = &cobra.Command{
 			SourceNodes:      srcNodes,
 			DestinationNodes: dstNodes,
 		}
-		prepareJSON := snappy.RestorePrepare(fs, prepareConfig)
+		prepareJSON, err := snappy.RestorePrepare(fs, prepareConfig)
+		if err != nil {
+			log.Fatal(err)
+		}
 		mappingFilename := fmt.Sprintf("%s-mapping.json", clusterName)
-		err := afero.WriteFile(fs, mappingFilename, prepareJSON, 0644)
+		err = afero.WriteFile(fs, mappingFilename, prepareJSON, 0644)
 		if err != nil {
 			log.Fatal(err)
 		}
