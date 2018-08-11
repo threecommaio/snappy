@@ -5,6 +5,8 @@ import (
 	"net"
 )
 
+var errMissingLocalIP = errors.New("could not find a local ip")
+
 // GetLocalIP returns the first non-loopback device
 func GetLocalIP() (string, error) {
 	addrs, err := net.InterfaceAddrs()
@@ -19,5 +21,5 @@ func GetLocalIP() (string, error) {
 			}
 		}
 	}
-	return "", errors.New("could not find a local ip")
+	return "", errMissingLocalIP
 }

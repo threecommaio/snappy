@@ -7,14 +7,13 @@ import (
 )
 
 func parseYamlFile(filename string) (map[string]interface{}, error) {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
+	if data, err := ioutil.ReadFile(filename); err == nil {
+		m := make(map[string]interface{})
+		if err := yaml.Unmarshal([]byte(data), &m); err != nil {
+			return nil, err
+		}
+		return m, nil
+	} else {
 		return nil, err
 	}
-	m := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(data), &m)
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
 }

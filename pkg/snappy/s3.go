@@ -116,7 +116,7 @@ func (s *S3) DownloadFiles(snapshotPath string, keys []string, directory string)
 		dirFolder := filepath.Dir(filepath.Join(directory, trimPath))
 
 		if _, err := os.Stat(dirFolder); err != nil {
-			log.Debugf("Creating directory: %s", dirFolder)
+			log.Debugf("creating directory: %s", dirFolder)
 			if err := os.MkdirAll(dirFolder, 0755); err != nil {
 				log.Fatal(err)
 			}
@@ -160,7 +160,7 @@ func (s *S3) DownloadFiles(snapshotPath string, keys []string, directory string)
 			if err != nil {
 				log.Fatal(err)
 			}
-			log.Debugf("Downloaded file: %s", filepath.Join(directory, trimPath))
+			log.Debugf("downloaded file: %s", filepath.Join(directory, trimPath))
 		}(key)
 	}
 	wg.Wait()
