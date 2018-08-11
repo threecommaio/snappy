@@ -29,7 +29,6 @@ var applyCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if mappingFile, err := ioutil.ReadFile(args[0]); err == nil {
 			prepareMapping := &snappy.PrepareMapping{}
-
 			if err := json.Unmarshal(mappingFile, &prepareMapping); err != nil {
 				log.Fatal(err)
 			}
