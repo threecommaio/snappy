@@ -30,6 +30,9 @@ var searchPaths = []string{
 	"/usr/local/sbin",
 }
 
+var errSnapshotExists = errors.New("snapshot already exists")
+var errNodetoolError = errors.New("exit status 1 - nodetool connection error (is cassandra running?)")
+
 type Cassandra struct {
 	config   map[string]interface{}
 	filename string
@@ -89,9 +92,10 @@ func (c *Cassandra) CreateSnapshot(id string) (bool, error) {
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 				if status.ExitStatus() == 2 {
-					return false, errors.Errorf("snapshot already exists for [%s]", id)
+					return false, errors.Wrap(errSnapshotExists, id)
 				}
-				log.Fatal("exit status 1 - nodetool connection error (is cassandra running?)\n", id)
+
+				return false, errNodetoolError
 			}
 		} else {
 			return false, errors.Errorf("cmd.Wait: %v", err)

@@ -28,7 +28,14 @@ func Backup(config *AWSConfig, snapshotID string) {
 
 	_, err = cassandra.CreateSnapshot(snapshotID)
 	if err != nil {
-		log.Warn("snapshot already exists, going to continue upload anyway")
+		switch err {
+		case errSnapshotExists:
+			log.Warn("snapshot already exists, going to continue upload anyway")
+		case errNodetoolError:
+			log.Fatal(errNodetoolError)
+		default:
+			log.Fatal(err)
+		}
 	}
 
 	files := cassandra.GetSnapshotFiles(snapshotID)
