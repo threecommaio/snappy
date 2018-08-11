@@ -16,6 +16,7 @@ func createFile(fs afero.Fs, filename string) {
 	f, _ := fs.Create(filename)
 	defer f.Close()
 }
+
 func createCassandraYaml(fs afero.Fs) {
 	createFile(fs, cassandraYamlFilename)
 }
@@ -40,10 +41,7 @@ func Test_find(t *testing.T) {
 	tests := make([]test, len(files))
 
 	for t, file := range files {
-		fs.MkdirAll(filepath.Dir(file), 0644)
-		f, _ := fs.Create(file)
-		defer f.Close()
-
+		createFile(fs, file)
 		tests[t] = test{file, args{fs: fs, filename: filepath.Base(file)}, file, false}
 	}
 
