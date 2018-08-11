@@ -27,13 +27,15 @@ var applyCmd = &cobra.Command{
 	Short: "Load a mapping file and configure a destination node",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		mappingFile, err := ioutil.ReadFile(args[0])
-		if err != nil {
+		if mappingFile, err := ioutil.ReadFile(args[0]); err == nil {
+			prepareMapping := &snappy.PrepareMapping{}
+
+			if err := json.Unmarshal(mappingFile, &prepareMapping); err != nil {
+				log.Fatal(err)
+			}
+			snappy.RestoreApply(node, prepareMapping)
+		} else {
 			log.Fatal(err)
 		}
-		prepareMapping := &snappy.PrepareMapping{}
-		json.Unmarshal(mappingFile, &prepareMapping)
-
-		snappy.RestoreApply(node, prepareMapping)
 	},
 }

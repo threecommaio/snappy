@@ -41,13 +41,14 @@ var downloadCmd = &cobra.Command{
 			skipTables, _ = cmd.Flags().GetBool("skip-tables")
 			config        = &snappy.AWSConfig{Bucket: bucket, Region: region}
 		)
-		mappingFile, err := ioutil.ReadFile(args[0])
-		if err != nil {
+		if mappingFile, err := ioutil.ReadFile(args[0]); err == nil {
+			prepareMapping := &snappy.PrepareMapping{}
+			if err := json.Unmarshal(mappingFile, &prepareMapping); err != nil {
+				log.Fatal(err)
+			}
+			snappy.DownloadSnapshot(node, snapshotID, config, prepareMapping, skipTables)
+		} else {
 			log.Fatal(err)
 		}
-		prepareMapping := &snappy.PrepareMapping{}
-		json.Unmarshal(mappingFile, &prepareMapping)
-
-		snappy.DownloadSnapshot(node, snapshotID, config, prepareMapping, skipTables)
 	},
 }
