@@ -94,7 +94,6 @@ func (c *Cassandra) CreateSnapshot(id string) (bool, error) {
 				if status.ExitStatus() == 2 {
 					return false, errors.Wrap(errSnapshotExists, id)
 				}
-
 				return false, errNodetoolError
 			}
 		} else {
