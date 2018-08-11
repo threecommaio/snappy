@@ -3,7 +3,6 @@ package snappy
 import (
 	"io"
 	"math"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -16,6 +15,7 @@ import (
 	"github.com/aybabtme/iocontrol"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 )
 
 const (
@@ -37,6 +37,7 @@ type S3 struct {
 	svc        *s3.S3
 	uploader   *s3manager.Uploader
 	downloader *s3manager.Downloader
+	fs         afero.Fs
 }
 
 type AWSConfig struct {
@@ -45,7 +46,7 @@ type AWSConfig struct {
 	Throttle int
 }
 
-func NewS3(config *AWSConfig) (*S3, error) {
+func NewS3(fs afero.Fs, config *AWSConfig) (*S3, error) {
 	cfg, err := external.LoadDefaultAWSConfig()
 	if err != nil {
 		log.Fatalln("unable to load SDK config,", err.Error())
@@ -66,13 +67,14 @@ func NewS3(config *AWSConfig) (*S3, error) {
 		svc:        svc,
 		uploader:   s3manager.NewUploader(cfg),
 		downloader: s3manager.NewDownloader(cfg),
+		fs:         fs,
 	}, nil
 }
 
 func (s *S3) UploadFile(filename string, key string) error {
 	var reader io.Reader
 
-	f, err := os.Open(filename)
+	f, err := s.fs.Open(filename)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -115,9 +117,9 @@ func (s *S3) DownloadFiles(snapshotPath string, keys []string, directory string)
 		trimPath := strings.Join(splitPath[2:], "/")
 		dirFolder := filepath.Dir(filepath.Join(directory, trimPath))
 
-		if _, err := os.Stat(dirFolder); err != nil {
+		if _, err := s.fs.Stat(dirFolder); err != nil {
 			log.Debugf("creating directory: %s", dirFolder)
-			if err := os.MkdirAll(dirFolder, 0755); err != nil {
+			if err := s.fs.MkdirAll(dirFolder, 0755); err != nil {
 				log.Fatal(err)
 			}
 		}
@@ -128,7 +130,7 @@ func (s *S3) DownloadFiles(snapshotPath string, keys []string, directory string)
 			localFile := filepath.Join(directory, trimPath)
 
 			// check if this file already exists, to avoid re-downloading
-			if f, err := os.Stat(localFile); err == nil {
+			if f, err := s.fs.Stat(localFile); err == nil {
 				// file was found lets compare snapshot size with local size to make sure it was fully downloaded
 				params := &s3.HeadObjectInput{
 					Bucket: aws.String(s.bucket),
@@ -144,7 +146,7 @@ func (s *S3) DownloadFiles(snapshotPath string, keys []string, directory string)
 				}
 			}
 
-			diskFile, err := os.Create(localFile)
+			diskFile, err := s.fs.Create(localFile)
 			defer diskFile.Close()
 
 			if err != nil {

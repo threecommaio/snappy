@@ -10,6 +10,7 @@ import (
 	"github.com/cheggaaa/pb"
 	humanize "github.com/dustin/go-humanize"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 )
 
 const (
@@ -17,14 +18,14 @@ const (
 )
 
 // Backup a nodes snapshot to S3
-func Backup(config *AWSConfig, snapshotID string) {
+func Backup(fs afero.Fs, config *AWSConfig, snapshotID string) {
 	var totalSize int64
 
-	s3, err := NewS3(config)
+	s3, err := NewS3(fs, config)
 	if err != nil {
 		log.Fatal(err)
 	}
-	cassandra := NewCassandra()
+	cassandra := NewCassandra(fs)
 
 	_, err = cassandra.CreateSnapshot(snapshotID)
 	if err != nil {
@@ -41,7 +42,7 @@ func Backup(config *AWSConfig, snapshotID string) {
 	files := cassandra.GetSnapshotFiles(snapshotID)
 
 	for path := range files {
-		fi, e := os.Stat(path)
+		fi, e := fs.Stat(path)
 		if e != nil {
 			log.Fatal(e)
 		}
@@ -57,7 +58,7 @@ func Backup(config *AWSConfig, snapshotID string) {
 		if err := s3.UploadFile(path, key); err != nil {
 			log.Fatal(err)
 		}
-		fi, e := os.Stat(path)
+		fi, e := fs.Stat(path)
 		if e != nil {
 			log.Fatal(e)
 		}
@@ -68,8 +69,8 @@ func Backup(config *AWSConfig, snapshotID string) {
 }
 
 // Prepare a mapping file to be written
-func RestorePrepare(config *PrepareConfig) []byte {
-	cassandra := NewCassandra()
+func RestorePrepare(fs afero.Fs, config *PrepareConfig) []byte {
+	cassandra := NewCassandra(fs)
 	mappingConfig := &PrepareMapping{
 		ClusterName: config.ClusterName,
 	}
@@ -96,11 +97,11 @@ func RestorePrepare(config *PrepareConfig) []byte {
 }
 
 // RestoreApply handles the configuration of cassandra.yaml to make the destination node match the old source node
-func RestoreApply(dstNode string, mapping *PrepareMapping) {
+func RestoreApply(fs afero.Fs, dstNode string, mapping *PrepareMapping) {
 	var tokenRange []string
 	var initalToken string
 
-	cassandra := NewCassandra()
+	cassandra := NewCassandra(fs)
 
 	if _, ok := cassandra.config["initial_token"]; ok {
 		log.Fatal("initial_token has already been set.. aborting")
@@ -114,7 +115,7 @@ func RestoreApply(dstNode string, mapping *PrepareMapping) {
 	}
 
 	if tokenRange != nil {
-		f, err := os.OpenFile(cassandra.GetConfigFilename(), os.O_APPEND|os.O_WRONLY, 0600)
+		f, err := fs.OpenFile(cassandra.GetConfigFilename(), os.O_APPEND|os.O_WRONLY, 0600)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -134,12 +135,12 @@ func RestoreApply(dstNode string, mapping *PrepareMapping) {
 }
 
 // DownloadSnapshot handles copying data from a snapshot on S3 to the local node
-func DownloadSnapshot(dstNode string, snapshotID string, config *AWSConfig, mapping *PrepareMapping, skipTables bool) {
+func DownloadSnapshot(fs afero.Fs, dstNode string, snapshotID string, config *AWSConfig, mapping *PrepareMapping, skipTables bool) {
 	var (
 		srcNode       string
 		snapshotIndex []Snapshot
 		nodeFound     = false
-		cassandra     = NewCassandra()
+		cassandra     = NewCassandra(fs)
 	)
 
 	for _, node := range mapping.Nodes {
@@ -154,7 +155,7 @@ func DownloadSnapshot(dstNode string, snapshotID string, config *AWSConfig, mapp
 		log.Fatalf("could not find node: %s in mapping file", dstNode)
 	}
 
-	s3, err := NewS3(config)
+	s3, err := NewS3(fs, config)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -4,8 +4,9 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
+
+	"github.com/spf13/afero"
 
 	"github.com/spf13/cobra"
 	"github.com/threecommaio/snappy/pkg/snappy"
@@ -33,14 +34,15 @@ var prepareCmd = &cobra.Command{
 	Use:   "prepare",
 	Short: "Creates a mapping file from old to new nodes",
 	Run: func(cmd *cobra.Command, args []string) {
+		fs := afero.NewOsFs()
 		prepareConfig := &snappy.PrepareConfig{
 			ClusterName:      clusterName,
 			SourceNodes:      srcNodes,
 			DestinationNodes: dstNodes,
 		}
-		prepareJSON := snappy.RestorePrepare(prepareConfig)
+		prepareJSON := snappy.RestorePrepare(fs, prepareConfig)
 		mappingFilename := fmt.Sprintf("%s-mapping.json", clusterName)
-		err := ioutil.WriteFile(mappingFilename, prepareJSON, 0644)
+		err := afero.WriteFile(fs, mappingFilename, prepareJSON, 0644)
 		if err != nil {
 			log.Fatal(err)
 		}

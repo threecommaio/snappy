@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/threecommaio/snappy/pkg/snappy"
 )
@@ -18,8 +19,9 @@ var backupCmd = &cobra.Command{
 			throttle, _   = cmd.Flags().GetInt("throttle")
 			snapshotID, _ = cmd.Flags().GetString("snapshot-id")
 			config        = &snappy.AWSConfig{Bucket: bucket, Region: region, Throttle: throttle}
+			fs            = afero.NewOsFs()
 		)
-		snappy.Backup(config, snapshotID)
+		snappy.Backup(fs, config, snapshotID)
 	},
 }
 

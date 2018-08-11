@@ -1,7 +1,6 @@
 package snappy
 
 import (
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 )
 
 var searchPaths = []string{
@@ -36,12 +36,13 @@ var errNodetoolError = errors.New("exit status 1 - nodetool connection error (is
 type Cassandra struct {
 	config   map[string]interface{}
 	filename string
+	fs       afero.Fs
 }
 
-func find(filename string) string {
+func find(fs afero.Fs, filename string) string {
 	for _, p := range searchPaths {
 		var pathFilename = filepath.Join(p, filename)
-		if _, err := os.Stat(pathFilename); err == nil {
+		if _, err := fs.Stat(pathFilename); err == nil {
 			return pathFilename
 		}
 	}
@@ -49,27 +50,27 @@ func find(filename string) string {
 	return ""
 }
 
-func NewCassandra() *Cassandra {
-	configFilename := cassandraYaml()
+func NewCassandra(fs afero.Fs) *Cassandra {
+	configFilename := cassandraYaml(fs)
 
 	config, err := parseYamlFile(configFilename)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return &Cassandra{config: config, filename: configFilename}
+	return &Cassandra{config: config, filename: configFilename, fs: fs}
 }
 
 func (c *Cassandra) GetConfigFilename() string {
 	return c.filename
 }
 
-func nodeTool() string {
-	return find("nodetool")
+func nodeTool(fs afero.Fs) string {
+	return find(fs, "nodetool")
 }
 
-func cassandraYaml() string {
-	return find("cassandra.yaml")
+func cassandraYaml(fs afero.Fs) string {
+	return find(fs, "cassandra.yaml")
 }
 
 // CreateSnapshotID generates a new monotic snapshot id
@@ -79,7 +80,7 @@ func (c *Cassandra) CreateSnapshotID() string {
 
 // CreateSnapshot creates a snapshot by ID
 func (c *Cassandra) CreateSnapshot(id string) (bool, error) {
-	nodeTool := nodeTool()
+	nodeTool := nodeTool(c.fs)
 	log.Infof("creating a snapshot using id [%s]\n", id)
 	cmd := exec.Command(nodeTool, "snapshot", "-t", id)
 
@@ -127,7 +128,7 @@ func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
 	log.Debugln("fetched node ip address", node)
 
 	for _, dataDir := range dataDirs {
-		files, err := ioutil.ReadDir(dataDir)
+		files, err := afero.ReadDir(c.fs, dataDir)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -140,7 +141,7 @@ func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
 
 		for _, keyspace := range keyspaces {
 
-			files, err := ioutil.ReadDir(filepath.Join(dataDir, keyspace))
+			files, err := afero.ReadDir(c.fs, filepath.Join(dataDir, keyspace))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -156,11 +157,11 @@ func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
 			for _, table := range tables {
 				// check if keyspace, table, snapshot exist
 				tableDir := filepath.Join(dataDir, keyspace, table, "snapshots", id, "/")
-				if _, err := os.Stat(tableDir); os.IsNotExist(err) {
+				if _, err := c.fs.Stat(tableDir); os.IsNotExist(err) {
 					continue
 				}
 
-				filepath.Walk(tableDir, func(path string, info os.FileInfo, err error) error {
+				afero.Walk(c.fs, tableDir, func(path string, info os.FileInfo, err error) error {
 					if err != nil {
 						log.Fatal(err)
 					}
@@ -193,7 +194,7 @@ func (c *Cassandra) GetListenAddress() string {
 
 // GetTokenRange finds the range of tokens for an ip address in cluster
 func (c *Cassandra) GetTokenRange(ip string) ([]string, error) {
-	nodeTool := exec.Command(nodeTool(), "ring")
+	nodeTool := exec.Command(nodeTool(c.fs), "ring")
 	grep := exec.Command("grep", "-w", ip)
 	awk := exec.Command("awk", "{print $NF \",\"}")
 	xargs := exec.Command("xargs")
@@ -215,11 +216,11 @@ func (c *Cassandra) FindTablePath(keyspace string, table string) (string, error)
 	dataDirs := c.GetDataDirectories()
 	for _, dataDir := range dataDirs {
 		keyspaceDir := filepath.Join(dataDir, keyspace)
-		if _, err := os.Stat(keyspaceDir); os.IsNotExist(err) {
+		if _, err := c.fs.Stat(keyspaceDir); os.IsNotExist(err) {
 			continue
 		}
 
-		files, err := ioutil.ReadDir(keyspaceDir)
+		files, err := afero.ReadDir(c.fs, keyspaceDir)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -240,11 +241,11 @@ func (c *Cassandra) FindTableUUID(keyspace string, table string) (string, error)
 	dataDirs := c.GetDataDirectories()
 	for _, dataDir := range dataDirs {
 		keyspaceDir := filepath.Join(dataDir, keyspace)
-		if _, err := os.Stat(keyspaceDir); os.IsNotExist(err) {
+		if _, err := c.fs.Stat(keyspaceDir); os.IsNotExist(err) {
 			continue
 		}
 
-		files, err := ioutil.ReadDir(keyspaceDir)
+		files, err := afero.ReadDir(c.fs, keyspaceDir)
 		if err != nil {
 			log.Fatal(err)
 		}

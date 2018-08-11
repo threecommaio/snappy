@@ -4,7 +4,8 @@ package cmd
 
 import (
 	"encoding/json"
-	"io/ioutil"
+
+	"github.com/spf13/afero"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -27,12 +28,13 @@ var applyCmd = &cobra.Command{
 	Short: "Load a mapping file and configure a destination node",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if mappingFile, err := ioutil.ReadFile(args[0]); err == nil {
+		fs := afero.NewOsFs()
+		if mappingFile, err := afero.ReadFile(fs, args[0]); err == nil {
 			prepareMapping := &snappy.PrepareMapping{}
 			if err := json.Unmarshal(mappingFile, &prepareMapping); err != nil {
 				log.Fatal(err)
 			}
-			snappy.RestoreApply(node, prepareMapping)
+			snappy.RestoreApply(fs, node, prepareMapping)
 		} else {
 			log.Fatal(err)
 		}

@@ -4,9 +4,9 @@ package cmd
 
 import (
 	"encoding/json"
-	"io/ioutil"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/threecommaio/snappy/pkg/snappy"
 )
@@ -40,13 +40,14 @@ var downloadCmd = &cobra.Command{
 			snapshotID, _ = cmd.Flags().GetString("snapshot-id")
 			skipTables, _ = cmd.Flags().GetBool("skip-tables")
 			config        = &snappy.AWSConfig{Bucket: bucket, Region: region}
+			fs            = afero.NewOsFs()
 		)
-		if mappingFile, err := ioutil.ReadFile(args[0]); err == nil {
+		if mappingFile, err := afero.ReadFile(fs, args[0]); err == nil {
 			prepareMapping := &snappy.PrepareMapping{}
 			if err := json.Unmarshal(mappingFile, &prepareMapping); err != nil {
 				log.Fatal(err)
 			}
-			snappy.DownloadSnapshot(node, snapshotID, config, prepareMapping, skipTables)
+			snappy.DownloadSnapshot(fs, node, snapshotID, config, prepareMapping, skipTables)
 		} else {
 			log.Fatal(err)
 		}
