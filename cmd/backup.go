@@ -17,9 +17,10 @@ var backupCmd = &cobra.Command{
 			bucket, _     = cmd.Flags().GetString("aws-s3-bucket")
 			throttle, _   = cmd.Flags().GetInt("throttle")
 			snapshotID, _ = cmd.Flags().GetString("snapshot-id")
+			keyspaces, _  = cmd.Flags().GetStringSlice("keyspaces")
 			config        = &snappy.AWSConfig{Bucket: bucket, Region: region, Throttle: throttle}
 		)
-		snappy.Backup(config, snapshotID)
+		snappy.Backup(config, snapshotID, keyspaces)
 	},
 }
 
@@ -30,6 +31,7 @@ func init() {
 	backupCmd.Flags().StringP("aws-region", "r", "", "the aws region to use")
 	backupCmd.Flags().StringP("aws-s3-bucket", "b", "", "the aws s3 bucket to use")
 	backupCmd.Flags().IntP("throttle", "t", 200, "throttle in megabits/s")
+	backupCmd.Flags().StringSliceP("keyspaces", "k", []string{}, "include only these keyspaces")
 
 	backupCmd.MarkFlagRequired("snapshot-id")
 	backupCmd.MarkFlagRequired("aws-region")

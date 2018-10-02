@@ -17,7 +17,7 @@ const (
 )
 
 // Backup a nodes snapshot to S3
-func Backup(config *AWSConfig, snapshotID string) {
+func Backup(config *AWSConfig, snapshotID string, keyspaces []string) {
 	var totalSize int64
 
 	s3, err := NewS3(config)
@@ -26,7 +26,7 @@ func Backup(config *AWSConfig, snapshotID string) {
 	}
 	cassandra := NewCassandra()
 
-	_, err = cassandra.CreateSnapshot(snapshotID)
+	_, err = cassandra.CreateSnapshot(snapshotID, keyspaces)
 	if err != nil {
 		log.Warn("snapshot already exists, going to continue upload anyway")
 	}

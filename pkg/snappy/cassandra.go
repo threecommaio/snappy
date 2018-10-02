@@ -75,10 +75,12 @@ func (c *Cassandra) CreateSnapshotID() string {
 }
 
 // CreateSnapshot creates a snapshot by ID
-func (c *Cassandra) CreateSnapshot(id string) (bool, error) {
+func (c *Cassandra) CreateSnapshot(id string, keyspaces []string) (bool, error) {
 	nodeTool := nodeTool()
 	log.Infof("creating a snapshot using id [%s]\n", id)
-	cmd := exec.Command(nodeTool, "snapshot", "-t", id)
+	cmdArgs := []string{"snapshot", "-t", id}
+	cmdArgs = append(cmdArgs, keyspaces...)
+	cmd := exec.Command(nodeTool, cmdArgs...)
 
 	if err := cmd.Start(); err != nil {
 		return false, err
