@@ -113,22 +113,14 @@ func (c *Cassandra) GetDataDirectories() []string {
 	return directories
 }
 
-func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
-
-	var (
-		keyspaces []string
-		s3Files   = make(map[string]string)
-	)
-	dataDirs := c.GetDataDirectories()
-	node := c.GetListenAddress()
-
-	log.Debugln("fetched dataDirs", dataDirs)
-	log.Debugln("fetched node ip address", node)
+func (c *Cassandra) GetSnapshotFiles(id, nodeIP string, dataDirs []string) (map[string]string, error) {
+	var keyspaces []string
+	var snapshotFiles = make(map[string]string)
 
 	for _, dataDir := range dataDirs {
 		files, err := ioutil.ReadDir(dataDir)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		for _, file := range files {
@@ -141,7 +133,7 @@ func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
 
 			files, err := ioutil.ReadDir(filepath.Join(dataDir, keyspace))
 			if err != nil {
-				log.Fatal(err)
+				return nil, err
 			}
 
 			var tables []string
@@ -159,21 +151,24 @@ func (c *Cassandra) GetSnapshotFiles(id string) map[string]string {
 					continue
 				}
 
-				filepath.Walk(tableDir, func(path string, info os.FileInfo, err error) error {
+				err := filepath.Walk(tableDir, func(path string, info os.FileInfo, err error) error {
 					if err != nil {
-						log.Fatal(err)
+						return err
 					}
 					if !info.IsDir() {
 						remotePath := strings.TrimPrefix(path, tableDir)
-						s3Files[path] = filepath.Join("backups", id, node, keyspace, table, remotePath)
+						snapshotFiles[path] = filepath.Join("backups", id, nodeIP, keyspace, table, remotePath)
 					}
 					return nil
 				})
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
 
-	return s3Files
+	return snapshotFiles, nil
 }
 
 // GetListenAddress returns the listen_address from the config

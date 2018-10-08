@@ -17,7 +17,7 @@ const (
 )
 
 // Backup a nodes snapshot to S3
-func Backup(config *AWSConfig, snapshotID string, keyspaces []string) {
+func Backup(config *AWSConfig, snapshotID string, keyspaces []string) error {
 	var totalSize int64
 
 	s3, err := NewS3(config)
@@ -31,7 +31,12 @@ func Backup(config *AWSConfig, snapshotID string, keyspaces []string) {
 		log.Warn("snapshot already exists, going to continue upload anyway")
 	}
 
-	files := cassandra.GetSnapshotFiles(snapshotID)
+	nodeIP := cassandra.GetListenAddress()
+	dataDirs := cassandra.GetDataDirectories()
+	files, err := cassandra.GetSnapshotFiles(snapshotID, nodeIP, dataDirs)
+	if err != nil {
+		return err
+	}
 
 	for path := range files {
 		fi, e := os.Stat(path)
@@ -58,6 +63,7 @@ func Backup(config *AWSConfig, snapshotID string, keyspaces []string) {
 	}
 	bar.Finish()
 	log.Infoln("uploaded a total size of:", humanize.Bytes(uint64(totalSize)))
+	return nil
 }
 
 // Prepare a mapping file to be written
