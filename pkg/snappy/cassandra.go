@@ -113,7 +113,7 @@ func (c *Cassandra) GetDataDirectories() []string {
 	return directories
 }
 
-func (c *Cassandra) GetSnapshotFiles(id, nodeIP string, dataDirs []string) (map[string]string, error) {
+func (c *Cassandra) GetSnapshotFiles(id, nodeIP, prefix string, dataDirs []string) (map[string]string, error) {
 	var keyspaces []string
 	var snapshotFiles = make(map[string]string)
 
@@ -157,7 +157,7 @@ func (c *Cassandra) GetSnapshotFiles(id, nodeIP string, dataDirs []string) (map[
 					}
 					if !info.IsDir() {
 						remotePath := strings.TrimPrefix(path, tableDir)
-						snapshotFiles[path] = filepath.Join("backups", id, nodeIP, keyspace, table, remotePath)
+						snapshotFiles[path] = filepath.Join(prefix, id, nodeIP, keyspace, table, remotePath)
 					}
 					return nil
 				})

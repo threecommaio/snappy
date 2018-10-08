@@ -33,7 +33,7 @@ func Backup(config *AWSConfig, snapshotID string, keyspaces []string) error {
 
 	nodeIP := cassandra.GetListenAddress()
 	dataDirs := cassandra.GetDataDirectories()
-	files, err := cassandra.GetSnapshotFiles(snapshotID, nodeIP, dataDirs)
+	files, err := cassandra.GetSnapshotFiles(snapshotID, nodeIP, "backups", dataDirs)
 	if err != nil {
 		return err
 	}

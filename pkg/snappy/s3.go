@@ -18,6 +18,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Basic consts for s3
 const (
 	// Bytes per second
 	BytesPerSecond int = 1
@@ -29,6 +30,8 @@ const (
 	Gbps = Mbps * 1024
 	// Unlimited bandwidth
 	Unlimited = math.MaxInt64
+
+	SnapshotCompleted = "SNAPSHOT_COMPLETED"
 )
 
 type S3 struct {
@@ -166,6 +169,31 @@ func (s *S3) DownloadFiles(snapshotPath string, keys []string, directory string)
 	wg.Wait()
 
 	return nil
+}
+
+// IsSnapshotComplete checks if a previous uploaded snapshot was completely uploaded
+func (s *S3) IsSnapshotComplete(path string) bool {
+	key := filepath.Join(path, SnapshotCompleted)
+	req := s.svc.HeadObjectRequest(&s3.HeadObjectInput{Bucket: &s.bucket, Key: aws.String(key)})
+	_, err := req.Send()
+
+	return err == nil
+}
+
+// MarkSnapshotComplete marks a snapshot as completely uploaded
+func (s *S3) MarkSnapshotComplete(prefix, snapshotID string) bool {
+	key := filepath.Join(prefix, snapshotID, SnapshotCompleted)
+
+	params := &s3manager.UploadInput{
+		Bucket: aws.String(s.bucket),
+		Body:   strings.NewReader(""),
+		Key:    aws.String(key),
+	}
+
+	// upload file
+	_, err := s.uploader.Upload(params)
+
+	return err == nil
 }
 
 // ListKeyspaces returns a set of keyspaces found on the bucket
