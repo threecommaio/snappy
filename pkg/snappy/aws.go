@@ -1,8 +1,8 @@
 package snappy
 
 import (
+	"context"
 	"io"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,22 +18,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Basic consts for s3
-const (
-	// Bytes per second
-	BytesPerSecond int = 1
-	// Kilobits per second
-	Kbps = BytesPerSecond * (1024 / 8)
-	// Megabits per second
-	Mbps = Kbps * 1024
-	// Gigabits per second
-	Gbps = Mbps * 1024
-	// Unlimited bandwidth
-	Unlimited = math.MaxInt64
-
-	SnapshotCompleted = "SNAPSHOT_COMPLETED"
-)
-
 type S3 struct {
 	bucket     string
 	throttle   int
@@ -42,13 +26,7 @@ type S3 struct {
 	downloader *s3manager.Downloader
 }
 
-type AWSConfig struct {
-	Region   string
-	Bucket   string
-	Throttle int
-}
-
-func NewS3(config *AWSConfig) (*S3, error) {
+func NewS3(config *CloudConfig) (*S3, error) {
 	cfg, err := external.LoadDefaultAWSConfig()
 	if err != nil {
 		log.Fatalln("unable to load SDK config,", err.Error())
@@ -72,18 +50,19 @@ func NewS3(config *AWSConfig) (*S3, error) {
 	}, nil
 }
 
-func (s *S3) UploadFile(filename string, key string) error {
+// UploadFile handles taking files and uploading them to S3
+func (s *S3) UploadFile(ctx context.Context, filename string, key string) error {
 	var reader io.Reader
 
 	f, err := os.Open(filename)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if s.throttle == 0 {
 		reader = f
 	} else {
-		maxBurst := 100 * time.Millisecond
+		maxBurst := 5 * time.Second
 		readPerSec := s.throttle * Mbps
 		measured := iocontrol.NewMeasuredReader(f)
 		reader = iocontrol.ThrottledReader(measured, readPerSec, maxBurst)

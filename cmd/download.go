@@ -39,7 +39,7 @@ var downloadCmd = &cobra.Command{
 			bucket, _     = cmd.Flags().GetString("aws-s3-bucket")
 			snapshotID, _ = cmd.Flags().GetString("snapshot-id")
 			skipTables, _ = cmd.Flags().GetBool("skip-tables")
-			config        = &snappy.AWSConfig{Bucket: bucket, Region: region}
+			config        = &snappy.CloudConfig{Bucket: bucket, Region: region}
 		)
 		mappingFile, err := ioutil.ReadFile(args[0])
 		if err != nil {

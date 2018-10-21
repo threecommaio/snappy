@@ -1,11 +1,13 @@
 package snappy
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cheggaaa/pb"
 	humanize "github.com/dustin/go-humanize"
@@ -16,17 +18,12 @@ const (
 	SnapshotFolderPrefix = "backups"
 )
 
-// Backup a nodes snapshot to S3
-func Backup(config *AWSConfig, snapshotID string, keyspaces []string) error {
+// Backup a nodes snapshot to a cloud provider
+func Backup(config *CloudConfig, snapshotID string, keyspaces []string) error {
 	var totalSize int64
 
-	s3, err := NewS3(config)
-	if err != nil {
-		log.Fatal(err)
-	}
 	cassandra := NewCassandra()
-
-	_, err = cassandra.CreateSnapshot(snapshotID, keyspaces)
+	_, err := cassandra.CreateSnapshot(snapshotID, keyspaces)
 	if err != nil {
 		log.Warn("snapshot already exists, going to continue upload anyway")
 	}
@@ -51,13 +48,31 @@ func Backup(config *AWSConfig, snapshotID string, keyspaces []string) error {
 	bar.Start()
 	bar.ShowSpeed = true
 
-	for path, key := range files {
-		if err := s3.UploadFile(path, key); err != nil {
+	var cu CloudSnapshot
+
+	switch config.Provider {
+	case CloudProviderAWS:
+		cu, err = NewS3(config)
+		if err != nil {
 			log.Fatal(err)
+		}
+	case CloudProviderGCP:
+		cu, err = NewCloudStorage(config)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	for path, key := range files {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
+		if err := cu.UploadFile(ctx, path, key); err != nil {
+			return err
 		}
 		fi, e := os.Stat(path)
 		if e != nil {
-			log.Fatal(e)
+			return err
 		}
 		bar.Add64(fi.Size())
 	}
@@ -132,8 +147,8 @@ func RestoreApply(dstNode string, mapping *PrepareMapping) {
 	}
 }
 
-// DownloadSnapshot handles copying data from a snapshot on S3 to the local node
-func DownloadSnapshot(dstNode string, snapshotID string, config *AWSConfig, mapping *PrepareMapping, skipTables bool) {
+// DownloadSnapshot handles copying data from a snapshot on cloud provider to the local node
+func DownloadSnapshot(dstNode string, snapshotID string, config *CloudConfig, mapping *PrepareMapping, skipTables bool) {
 	var (
 		srcNode       string
 		snapshotIndex []Snapshot
