@@ -151,7 +151,7 @@ func (s *S3) DownloadFiles(snapshotPath string, keys []string, directory string)
 }
 
 // IsSnapshotComplete checks if a previous uploaded snapshot was completely uploaded
-func (s *S3) IsSnapshotComplete(path string) bool {
+func (s *S3) IsSnapshotComplete(ctx context.Context, path string) bool {
 	key := filepath.Join(path, SnapshotCompleted)
 	req := s.svc.HeadObjectRequest(&s3.HeadObjectInput{Bucket: &s.bucket, Key: aws.String(key)})
 	_, err := req.Send()
@@ -160,7 +160,7 @@ func (s *S3) IsSnapshotComplete(path string) bool {
 }
 
 // MarkSnapshotComplete marks a snapshot as completely uploaded
-func (s *S3) MarkSnapshotComplete(prefix, snapshotID string) bool {
+func (s *S3) MarkSnapshotComplete(ctx context.Context, prefix, snapshotID string) bool {
 	key := filepath.Join(prefix, snapshotID, SnapshotCompleted)
 
 	params := &s3manager.UploadInput{
