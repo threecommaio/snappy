@@ -57,7 +57,7 @@ func Backup(config *CloudConfig, snapshotID string, keyspaces []string) error {
 			log.Fatal(err)
 		}
 	case CloudProviderGCP:
-		cu, err = NewCloudStorage(config)
+		cu, err = NewCloudStorage(context.Background(), config)
 		if err != nil {
 			log.Fatal(err)
 		}

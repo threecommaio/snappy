@@ -20,7 +20,11 @@ type CloudStorage struct {
 }
 
 // NewCloudStorage returns a new cloud storage
-func NewCloudStorage(config *CloudConfig) (*CloudStorage, error) {
+func NewCloudStorage(ctx context.Context, config *CloudConfig) (*CloudStorage, error) {
+	_, err := storage.NewClient(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return &CloudStorage{config: config}, nil
 }
 
